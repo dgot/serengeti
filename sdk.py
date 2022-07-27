@@ -8,6 +8,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pandas as pd
 from pyarrow import RecordBatch
+
+
 T = TypeVar('T')
 LOOP = asyncio.get_event_loop()
 
@@ -30,6 +32,7 @@ def task(parallel: Optional[bool] = False):
             else:
                 result = func(value)
             return result
+
         def decorated(source):
             def subscribe(observer, scheduler=None):
                 def on_next(value):
@@ -44,6 +47,7 @@ def task(parallel: Optional[bool] = False):
                     observer.on_completed,
                     scheduler,
                 )
+
             return rx.create(subscribe)
         return decorated
     return decorate
