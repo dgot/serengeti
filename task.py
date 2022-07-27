@@ -10,67 +10,16 @@ from concurrent.futures import ThreadPoolExecutor
 THREADS = ThreadPoolExecutor(cpu_count())
 
 
-def ray_executor(value, func, **kwargs) -> Future:
+def ray_executor(value, func, *args, **kwargs) -> Future:
     """Execute function on value using Ray"""
     _func = ray.remote(func)
-    object_ref = _func.remote(value)
+    object_ref = _func.remote(value, *args, **kwargs)
     return object_ref.future()
 
 
 def thread_executor(value, func, **kwargs) -> Future:
     """Execute function on value in a thread pool"""
-    return THREADS.submit(func, value)
-
-
-def wartial(func, **kwargs) -> callable:
-    """Partial wrapper since ray does not recognize partials as true functions"""
-    return lambda *a, **b: functools.partial(func, **kwargs)(*a, **b)
-
-
-def stream(function, source, executor=ray_executor, ordered=False) -> Generator:
-    """Map function over an iterable source async or syncronized"""
-    partial = functools.partial(executor, func=function)
-    futures = lambda: (partial(value) for value in source)  # noqa
-    stream = as_completed(futures()) if not ordered else futures()
-    return (future.result() for future in stream)
-
-
-def task(func=None, executor=ray_executor, ordered=False):
-    """Decorator for turning a function into a generator"""
-
-    def decorate(func):
-        def _lazy(source=None, **kwargs):
-            partial = wartial(func, **kwargs)
-            if source:  # in case the task is called with no kwargs
-                return stream(
-                    function=partial,
-                    source=source,
-                    executor=executor,
-                    ordered=ordered,
-                    **kwargs,
-                )
-            return stream
-
-        return _lazy
-
-    if callable(func):  # if decorated with parameters
-        return decorate(func)
-    return decorate
-
-
-def pipe(*functions, executor=ray_executor, ordered=False):
-    """compose N functions together as a generator"""
-
-    def _pipe(source, target):
-        if inspect.isgeneratorfunction(target):
-            return (value for value in target(source))
-        if not isinstance(source, Iterable):
-            source = [source]
-        return stream(target, source, executor, ordered)
-
-    return lambda source: functools.reduce(
-        _pipe, functions[1:], _pipe(source, functions[0])
-    )
+    return THREADS.submit(func, value, **kwargs)
 
 
 class LazyMonad:
@@ -82,19 +31,44 @@ class LazyMonad:
 
 
 class StreamMonad:
-    def __init__(self, source: Union[Iterable, Generator]):
+    """Monadic Async Generator Composition"""
+
+    def __init__(self, source: Union[Iterable, Generator], executor=thread_executor):
+        self.executor = executor
         if isinstance(source, (Iterable, Generator)):
             self.source = source
         else:
-            raise TypeError('Source must be a Generator or Iterable')
+            raise TypeError("Source must be a Generator or Iterable")
 
-    def bind(self, function: Callable, *args, **kwargs):
-        executor = functools.partial(ray_executor, func=function)
-        futures = lambda: (executor(value, *args, **kwargs) for value in self.source)  # noqa
-        results = (self._get_result(future) for future in as_completed(futures()))
-        return StreamMonad(results)
+    def __iter__(self):
+        return self.source
+
+    def bind(self, function: Callable, ordered=False, **kwargs):
+        function = functools.partial(function, **kwargs)
+        source = self._stream(function, ordered=ordered)
+        return StreamMonad(source)
+
+    def compose(self, *functions):
+        return compose(self.source, *functions)
+
+    def _stream(self, function, executor=ray_executor, ordered=False) -> Generator:
+        """Map function over source async or ordered"""
+        executor = functools.partial(self.executor, func=function)
+        futures = (executor(value) for value in self.source)
+        if not ordered:
+            futures = as_completed(futures)
+        results = (self._get_result(future) for future in futures)
+        return results
 
     def _get_result(self, result: Union[Future, Any]):
         if isinstance(result, Future):
             return result.result()
         return result
+
+
+def compose(source: Union[Iterable, Generator], *functions: Callable) -> StreamMonad:
+    """Compose N functions as StreamMonads on an iterable source"""
+    bind = lambda monad, function: monad.bind(function)  # noqa
+    initial = StreamMonad(source)
+    composition = functools.reduce(bind, functions, initial)
+    return composition
