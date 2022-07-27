@@ -98,3 +98,8 @@ class StreamMonad:
         futures = lambda: (executor(value, *args, **kwargs) for value in self.source)  # noqa
         results = (self._get_result(future) for future in as_completed(futures()))
         return StreamMonad(results)
+
+    def _get_result(self, result: Union[Future, Any]):
+        if isinstance(result, Future):
+            return result.result()
+        return result
