@@ -71,3 +71,12 @@ def pipe(*functions, executor=ray_executor, ordered=False):
     return lambda source: functools.reduce(
         _pipe, functions[1:], _pipe(source, functions[0])
     )
+
+
+class LazyMonad:
+    def __init__(self, value: object):
+        self.compute = value if isinstance(value, Callable) else lambda: value
+
+    def bind(self, function: Callable, *args, **kwargs):
+        return LazyMonad(lambda: function(self.compute(), *args, **kwargs))
+
