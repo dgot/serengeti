@@ -1,0 +1,10 @@
+# framework
+ray~=1.13
+
+# testing
+pytest~=7.1
+ipython~=8.4
+
+# codestyle
+flake8>=4.0
+black>=22.0
