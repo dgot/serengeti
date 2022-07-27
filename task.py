@@ -80,3 +80,21 @@ class LazyMonad:
     def bind(self, function: Callable, *args, **kwargs):
         return LazyMonad(lambda: function(self.compute(), *args, **kwargs))
 
+
+class StreamMonad:
+    def __init__(self, source: object):
+        if isinstance(source, (Iterable, Generator)):
+            self.source = source
+        else:
+            raise TypeError('Source must be a Generator or Iterable')
+
+    def _get_result(self, result):
+        if isinstance(result, Future):
+            return result.result()
+        return result
+
+    def bind(self, function: Callable, *args, **kwargs):
+        executor = functools.partial(ray_executor, func=function)
+        futures = lambda: (executor(value, *args, **kwargs) for value in self.source)  # noqa
+        results = (self._get_result(future) for future in as_completed(futures()))
+        return StreamMonad(results)
