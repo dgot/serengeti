@@ -82,13 +82,13 @@ class LazyMonad:
 
 
 class StreamMonad:
-    def __init__(self, source: object):
+    def __init__(self, source: Union[Iterable, Generator]):
         if isinstance(source, (Iterable, Generator)):
             self.source = source
         else:
             raise TypeError('Source must be a Generator or Iterable')
 
-    def _get_result(self, result):
+    def _get_result(self, result: Union[Future, Any]):
         if isinstance(result, Future):
             return result.result()
         return result
