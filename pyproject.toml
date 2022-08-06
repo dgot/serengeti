@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "serengeti"
+version = "0.0.1"
+description = "Declarative and Scalable Streaming Pipelines"
+authors = ["Daniel Gottlieb Dollerup"]
+license = "Apache-2.0"
+packages = [
+    { include = "serengeti" },
+]
+
+[tool.poetry.dependencies]
+expression = "^4.0.0"
+python = ">=3.9,<3.11"
+ray = "^1.13.0"
+
+[tool.poetry.dev-dependencies]
+black = "^22.6.0"
+flake8 = "^5.0.1"
+ipython = "^8.4.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
