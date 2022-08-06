@@ -97,12 +97,11 @@ def pipe(source: Union[Iterable, Generator], *functions: Callable) -> StreamMona
     return composition
 
 
-# TODO: Support railway programming:
-# Consider allowing providing multiple bind arguments: on_error, on_next, on_completed
-# These arguments however makes the StreamMonad look like an observable dataclass.
-# This is perhaps not so wrong, since composition of generators is essentially
-# downstream generators observing / waiting for a value to be yielded from an
-# upstream generator. Using generators is just a very neat way of implementing
-# the observer pattern.
-#
-# Consider using a Result monad like Maybe, Table etc.
+# TODO: Support railway oriented programming with result monads and allow
+# result side effects such as storage and cache.
+
+# TODO: Consider allowing providing multiple bind arguments: on_error, on_next, on_completed
+# like rxpy does with its observer pattern. Composition of generators lend itself
+# as a very neat way of implementing the observer pattern, since generators
+# await and "observe" for results upstream, aand process values as they are
+# received.
