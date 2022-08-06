@@ -33,6 +33,8 @@ out of the box, using `ray`.
 > NOTE: Current implementation is low level and will serve the purpose of
 > creating a higher level API.
 
+______
+
 ## 1. Install Poetry
 
 Ensure you have poetry installed, which is required for installation. It can
