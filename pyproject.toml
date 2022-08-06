@@ -19,10 +19,10 @@ flake8 = "^5.0.1"
 ipython = "^8.4.0"
 
 [tool.black]
-line-length = 80
+line-length = 99
 
 [tool.flak8]
-max-line-length = 80
+max-line-length = 99
 ignore = 'E305 W504 W605 W292'
 
 [tool.pytest]

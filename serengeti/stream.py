@@ -45,7 +45,7 @@ class StreamMonad:
     def __iter__(self):
         return self.source
 
-    def bind(self, function: Callable, ordered=False, **kwargs) -> 'StreamMonad':
+    def bind(self, function: Callable, ordered=False, **kwargs) -> "StreamMonad":
         """Bind function to the current StreamMonad's iterable source
 
         Parameters
@@ -70,7 +70,7 @@ class StreamMonad:
         source = self._stream(function, ordered=ordered)
         return StreamMonad(source)
 
-    def pipe(self, *functions) -> 'StreamMonad':
+    def pipe(self, *functions) -> "StreamMonad":
         """Pipe the functions on this stream"""
         return pipe(self.source, *functions)
 
