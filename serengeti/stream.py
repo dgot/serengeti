@@ -92,8 +92,8 @@ class StreamMonad:
                 f"Parameter 'ordered' must be of type <bool> but got '{type(ordered)}'"
             )
         function = functools.partial(function, **kwargs)
-        source = stream(function, self, executor=self.executor, ordered=ordered)
-        return StreamMonad(source)
+        iterable = stream(function, self, executor=self.executor, ordered=ordered)
+        return StreamMonad(iterable)
 
     def pipe(self, *functions) -> "StreamMonad":
         """Pipe functions on this stream"""
@@ -105,10 +105,11 @@ class StreamMonad:
 
     def on_completed(self, function: Callable, **kwargs) -> "StreamMonad":
         """Only bind function to the last element yielded upstream"""
-        return StreamMonad(element_at(self, index=-1)).bind(function, **kwargs)
+        last_element = element_at(self, index=-1)
+        return StreamMonad(last_element).bind(function, **kwargs)
 
     def on_error(self, function: Callable, **kwargs) -> "StreamMonad":
-        """Only bind function to the stream of possible failures yielded upstream"""
+        """Only bind function to the stream of failures yielded upstream"""
         raise NotImplementedError
 
 
