@@ -99,6 +99,18 @@ class StreamMonad:
         """Pipe functions on this stream"""
         return pipe(self.source, *functions)
 
+    def on_next(self, function: Callable, **kwargs) -> "StreamMonad":
+        """Bind function to the stream of all elements yielded upstream"""
+        return self.bind(function=function, **kwargs)
+
+    def on_completed(self, function: Callable, **kwargs) -> "StreamMonad":
+        """Only bind function to the last element yielded upstream"""
+        return StreamMonad(element_at(self, index=-1)).bind(function, **kwargs)
+
+    def on_error(self, function: Callable, **kwargs) -> "StreamMonad":
+        """Only bind function to the stream of possible failures yielded upstream"""
+        raise NotImplementedError
+
 
 def pipe(source: Union[Iterable, Generator], *functions: Callable) -> StreamMonad:
     """pipe N functions as StreamMonads on an iterable source"""
@@ -106,6 +118,17 @@ def pipe(source: Union[Iterable, Generator], *functions: Callable) -> StreamMona
     initial = StreamMonad(source)
     composition = functools.reduce(bind, functions, initial)
     return composition
+
+
+def element_at(iterable: Union[Iterable, Generator], index: int, default: Any = None) -> Generator:
+    """Returns the element at a specified index in an iterable"""
+    nth_element = None
+    for pos, value in enumerate(iterable):
+        nth_element = value
+        if pos == index:
+            yield nth_element or default
+    if index == -1:
+        yield nth_element
 
 
 # TODO: Support railway oriented programming with result monads and allow
