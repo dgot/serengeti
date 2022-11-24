@@ -11,7 +11,7 @@ packages = [
 [tool.poetry.dependencies]
 expression = "^4.0.0"
 python = ">=3.9,<3.11"
-ray = "^1.13.0"
+ray = "^2.1.0"
 pytest = "^7.1.2"
 
 [tool.poetry.dev-dependencies]
