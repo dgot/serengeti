@@ -43,7 +43,7 @@ be installed following this [installation guide](https://python-poetry.org/docs/
 ## 2. Clone repository from GitHub
 
 ```bash
-git clone https://github.com/dgot/serengeti
+git clone https://github.com/dgot/serengeti.git
 ```
 
 ## 3. Install using poetry
