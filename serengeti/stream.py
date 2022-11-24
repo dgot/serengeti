@@ -62,7 +62,7 @@ class StreamMonad:
     def __init__(self, *iterables: Union[Iterable, Generator], executor: Executor = None):
         for iterable in iterables:
             if not isinstance(iterable, (Iterable, Generator)):
-                raise TypeError("Source must be a Generator or Iterable")
+                raise TypeError("Iterables must be of type Generator or Iterable")
         self.iterables = iterables
         self.executor = executor or DEFAULT_EXECUTOR
 
@@ -72,7 +72,7 @@ class StreamMonad:
             for values in zip(*self.iterables)
         )
 
-    def bind(self, function: Callable, ordered=False, *args, **kwargs) -> "StreamMonad":
+    def bind(self, function: Callable, ordered=True, **kwargs) -> "StreamMonad":
         """Bind function to the current StreamMonad's iterable source
 
         Parameters
@@ -87,7 +87,11 @@ class StreamMonad:
             mapped over the current StreamMonad.
 
         """
-        function = functools.partial(function, *args, **kwargs)
+        if not isinstance(ordered, bool):
+            raise TypeError(
+                f"Parameter 'ordered' must be of type <bool> but got '{type(ordered)}'"
+            )
+        function = functools.partial(function, **kwargs)
         source = stream(function, self, executor=self.executor, ordered=ordered)
         return StreamMonad(source)
 
