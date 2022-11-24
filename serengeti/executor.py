@@ -17,10 +17,11 @@ class RayExecutor(Executor):
         return ray.remote(fn)
 
     def submit(self, fn, *args, **kwargs) -> Future:
-        # we wrap due to bad ray function type checking
+        # we wrap due to bad ray function type checking:
+        # builtin or partial functions cannot be decorated using ray.remote
         wrapper = lambda *args, **kwargs: fn(*args, **kwargs)  # noqa
-        rfn = self._decorate(wrapper)
-        object_ref = rfn.remote(*args, **kwargs)
+        _fn = self._decorate(wrapper)
+        object_ref = _fn.remote(*args, **kwargs)
         return object_ref.future()
 
     def shutdown(self, wait: bool = ..., *, cancel_futures: bool = ...) -> None:
