@@ -2,7 +2,7 @@ import functools
 from concurrent.futures import Executor, as_completed, Future
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import cpu_count
-from typing import Callable, Generator, Iterable, Union
+from typing import Callable, Generator, Iterable, Union, Any
 
 
 DEFAULT_EXECUTOR = ThreadPoolExecutor(cpu_count())
