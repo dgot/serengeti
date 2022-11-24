@@ -1,14 +1,19 @@
 import functools
 from concurrent.futures import Executor, as_completed, Future
-from concurrent.futures import ThreadPoolExecutor
-from multiprocessing import cpu_count
 from typing import Callable, Generator, Iterable, Union, Any
+from serengeti.executor import distributed
 
 
-DEFAULT_EXECUTOR = ThreadPoolExecutor(cpu_count())
+DEFAULT_EXECUTOR = distributed
 
 
-def stream(function: Callable, *iterables, executor: Executor = None, ordered=False) -> Generator:
+def stream(
+    function: Callable,
+    *iterables: Union[Iterable, Generator],
+    executor: Executor = None,
+    ordered: bool = False,
+    **kwargs,
+) -> Generator:
     """Returns a generator equivalent to map(fn, *values)
     but yielding function call results on iterables as they are completed (async).
 
@@ -17,6 +22,8 @@ def stream(function: Callable, *iterables, executor: Executor = None, ordered=Fa
     function : Callable
         A callable that will take as many arguments as there are
         passed iterables.
+    *iterables : Union[Iterable, Generator]
+        iterables to stream function over
     executor : Executor
         The executor instance to submit function calls to, will default to
         a ThreadPoolExecutor if nothing is provided.
@@ -34,7 +41,7 @@ def stream(function: Callable, *iterables, executor: Executor = None, ordered=Fa
         executor or DEFAULT_EXECUTOR
     )
     futures = (
-        executor.submit(function, *args)
+        executor.submit(function, *args, **kwargs)
         for args in zip(*iterables)
     )
     if not ordered:
@@ -79,6 +86,8 @@ class StreamMonad:
         ----------
         function: Callable
             Function to map over the StreamMonad's source
+        **kwargs: Mapping
+            Keyword arguments to pass
 
         Returns
         --------
@@ -91,8 +100,12 @@ class StreamMonad:
             raise TypeError(
                 f"Parameter 'ordered' must be of type <bool> but got '{type(ordered)}'"
             )
-        function = functools.partial(function, **kwargs)
-        iterable = stream(function, self, executor=self.executor, ordered=ordered)
+        iterable = stream(
+            function, self,
+            executor=self.executor,
+            ordered=ordered,
+            **kwargs,
+        )
         return StreamMonad(iterable)
 
     def pipe(self, *functions) -> "StreamMonad":
