@@ -97,7 +97,7 @@ class StreamMonad:
 
     def pipe(self, *functions) -> "StreamMonad":
         """Pipe functions on this stream"""
-        return pipe(self.source, *functions)
+        return pipe(self, *functions)
 
     def on_next(self, function: Callable, **kwargs) -> "StreamMonad":
         """Bind function to the stream of all elements yielded upstream"""
@@ -112,10 +112,10 @@ class StreamMonad:
         raise NotImplementedError
 
 
-def pipe(source: Union[Iterable, Generator], *functions: Callable) -> StreamMonad:
+def pipe(iterable: Union[Iterable, Generator], *functions: Callable) -> StreamMonad:
     """pipe N functions as StreamMonads on an iterable source"""
     bind = lambda monad, function: monad.bind(function)  # noqa
-    initial = StreamMonad(source)
+    initial = StreamMonad(iterable)
     composition = functools.reduce(bind, functions, initial)
     return composition
 
