@@ -38,7 +38,8 @@ def stream(
 
     """
     executor = (
-        executor or DEFAULT_EXECUTOR
+        executor
+        or DEFAULT_EXECUTOR
     )
     futures = (
         executor.submit(function, *args, **kwargs)
@@ -66,6 +67,7 @@ class StreamMonad:
     function is applied on the current iterable source.
 
     """
+
     def __init__(self, *iterables: Union[Iterable, Generator], executor: Executor = None):
         for iterable in iterables:
             if not isinstance(iterable, (Iterable, Generator)):
@@ -75,11 +77,10 @@ class StreamMonad:
 
     def __iter__(self):
         return (  # unpack if iterables only contain 1 value
-            values[0] if len(values) == 1 else values
-            for values in zip(*self.iterables)
+            values[0] if len(values) == 1 else values for values in zip(*self.iterables)
         )
 
-    def bind(self, function: Callable, ordered=True, **kwargs) -> "StreamMonad":
+    def bind(self, function: Callable, ordered=False, **kwargs) -> "StreamMonad":
         """Bind function to the current StreamMonad's iterable source
 
         Parameters
@@ -101,19 +102,18 @@ class StreamMonad:
                 f"Parameter 'ordered' must be of type <bool> but got '{type(ordered)}'"
             )
         iterable = stream(
-            function, self,
+            function,
+            self,
             executor=self.executor,
             ordered=ordered,
             **kwargs,
         )
-        downstream = StreamMonad(
-            iterable, executor=self.executor
-        )
+        downstream = StreamMonad(iterable, executor=self.executor)
         return downstream
 
     def pipe(self, *functions) -> "StreamMonad":
         """Pipe functions on this stream"""
-        return pipe(self, *functions, )
+        return pipe(self, *functions)
 
     def on_next(self, function: Callable, **kwargs) -> "StreamMonad":
         """Bind function to the stream of all elements yielded upstream"""
@@ -121,7 +121,7 @@ class StreamMonad:
 
     def on_completed(self, function: Callable, **kwargs) -> "StreamMonad":
         """Only bind function to the last element yielded upstream"""
-        last_element = element_at(self, index=-1)
+        last_element: Generator = element_at(self, index=-1)
         return StreamMonad(last_element, executor=self.executor).bind(function, **kwargs)
 
     def on_error(self, function: Callable, **kwargs) -> "StreamMonad":
@@ -132,7 +132,7 @@ class StreamMonad:
 def pipe(
     iterable: Union[Iterable, Generator],
     *functions: Callable,
-    executor: Executor = None
+    executor: Executor = None,
 ) -> StreamMonad:
     """pipe N functions as StreamMonads on an iterable source"""
     executor = executor or DEFAULT_EXECUTOR
