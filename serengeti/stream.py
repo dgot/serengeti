@@ -106,11 +106,14 @@ class StreamMonad:
             ordered=ordered,
             **kwargs,
         )
-        return StreamMonad(iterable)
+        downstream = StreamMonad(
+            iterable, executor=self.executor
+        )
+        return downstream
 
     def pipe(self, *functions) -> "StreamMonad":
         """Pipe functions on this stream"""
-        return pipe(self, *functions)
+        return pipe(self, *functions, )
 
     def on_next(self, function: Callable, **kwargs) -> "StreamMonad":
         """Bind function to the stream of all elements yielded upstream"""
@@ -119,17 +122,22 @@ class StreamMonad:
     def on_completed(self, function: Callable, **kwargs) -> "StreamMonad":
         """Only bind function to the last element yielded upstream"""
         last_element = element_at(self, index=-1)
-        return StreamMonad(last_element).bind(function, **kwargs)
+        return StreamMonad(last_element, executor=self.executor).bind(function, **kwargs)
 
     def on_error(self, function: Callable, **kwargs) -> "StreamMonad":
         """Only bind function to the stream of failures yielded upstream"""
         raise NotImplementedError
 
 
-def pipe(iterable: Union[Iterable, Generator], *functions: Callable) -> StreamMonad:
+def pipe(
+    iterable: Union[Iterable, Generator],
+    *functions: Callable,
+    executor: Executor = None
+) -> StreamMonad:
     """pipe N functions as StreamMonads on an iterable source"""
+    executor = executor or DEFAULT_EXECUTOR
     bind = lambda monad, function: monad.bind(function)  # noqa
-    initial = StreamMonad(iterable)
+    initial = StreamMonad(iterable, executor=executor)
     composition = functools.reduce(bind, functions, initial)
     return composition
 
