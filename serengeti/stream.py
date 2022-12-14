@@ -69,16 +69,23 @@ class StreamMonad:
     """
 
     def __init__(self, *iterables: Union[Iterable, Generator], executor: Executor = None):
-        for iterable in iterables:
-            if not isinstance(iterable, (Iterable, Generator)):
-                raise TypeError("Iterables must be of type Generator or Iterable")
         self.iterables = iterables
         self.executor = executor or DEFAULT_EXECUTOR
 
     def __iter__(self):
-        return (  # unpack if iterables only contain 1 value
-            values[0] if len(values) == 1 else values for values in zip(*self.iterables)
+        iterables = [
+            iterable() if callable(iterable)
+            else iterable for iterable in self.iterables
+        ]  # call iterable if it is a callable returning an iterable
+        for iterable in iterables:
+            if not isinstance(iterable, (Iterable, Generator)):
+                raise TypeError("Iterables must be of type Generator or Iterable")
+        unpacker = (  # noqa
+            # unpack if iterables only contain 1 value
+            values[0] if len(values) == 1 else values
+            for values in zip(*iterables)
         )
+        return unpacker
 
     def bind(self, function: Callable, ordered=False, **kwargs) -> "StreamMonad":
         """Bind function to the current StreamMonad's iterable source
@@ -101,7 +108,9 @@ class StreamMonad:
             raise TypeError(
                 f"Parameter 'ordered' must be of type <bool> but got '{type(ordered)}'"
             )
-        iterable = stream(
+        # We wrap the stream in a lambda, so as to make the
+        # generator re-iterable.
+        iterable = lambda: stream(  # noqa
             function,
             self,
             executor=self.executor,
