@@ -121,7 +121,7 @@ class StreamMonad:
 
     def on_completed(self, function: Callable, **kwargs) -> "StreamMonad":
         """Only bind function to the last element yielded upstream"""
-        last_element: Generator = element_at(self, index=-1)
+        last_element = lambda: element_at(self, index=-1)  # noqa
         return StreamMonad(last_element, executor=self.executor).bind(function, **kwargs)
 
     def on_error(self, function: Callable, **kwargs) -> "StreamMonad":
