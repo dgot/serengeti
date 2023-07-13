@@ -12,7 +12,7 @@ class RayExecutor(Executor):
     submit() function, for submitting work on Ray.
     """
 
-    @functools.lru_cache
+    @functools.lru_cache  # cache of remote function reference
     def _decorate(self, fn):
         return ray.remote(fn)
 

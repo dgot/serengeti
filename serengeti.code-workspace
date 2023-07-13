@@ -1,0 +1,67 @@
+{
+	"folders": [
+		{
+			"name": "serengeti",
+			"path": "."
+		},
+		{
+			"name": "notes",
+			"path": "../notes"
+		}
+	],
+	"settings": {
+		"workbench.colorTheme": "One Dark Pro Flat",
+		"explorer.confirmDragAndDrop": false,
+		"autoDocstring.docstringFormat": "numpy",
+		"workbench.iconTheme": "material-icon-theme",
+		"python.languageServer": "Pylance",
+		"workbench.editor.wrapTabs": true,
+		"workbench.editor.enablePreviewFromCodeNavigation": true,
+		"workbench.editorAssociations": {
+			"*.ipynb": "jupyter-notebook"
+		},
+		"notebook.cellToolbarLocation": {
+			"default": "right",
+			"jupyter-notebook": "left"
+		},
+		"editor.semanticHighlighting.enabled": false,
+		"zenMode.hideLineNumbers": false,
+		"zenMode.hideTabs": false,
+		"editor.semanticTokenColorCustomizations": {
+			"[One Dark Pro]": {
+				"enabled": false,
+				"rules": {
+					"variable.readonly": "#E5C07B",
+					"selfParameter": "#E5C07B",
+					"variable": "#ABB2BF"
+				}
+			},
+		},
+		"terminal.integrated.profiles.windows": {
+			"PowerShell": {
+				"source": "PowerShell",
+				"icon": "terminal-powershell"
+			},
+			"Command Prompt": {
+				"path": [
+					"${env:windir}\\Sysnative\\cmd.exe",
+					"${env:windir}\\System32\\cmd.exe"
+				],
+				"args": [],
+				"icon": "terminal-cmd"
+			},
+			"Git Bash": {
+				"source": "Git Bash"
+			},
+			"Ubuntu (WSL)": {
+				"path": "C:\\Windows\\System32\\wsl.exe",
+				"args": [
+					"-d",
+					"Ubuntu"
+				]
+			}
+		},
+		"python.linting.flake8Enabled": true,
+		"terminal.integrated.defaultProfile.windows": "Ubuntu (WSL)",
+	}
+}

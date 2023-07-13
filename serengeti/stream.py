@@ -1,21 +1,37 @@
 import functools
+import inspect
+
 from concurrent.futures import Executor, as_completed, Future
-from typing import Callable, Generator, Iterable, Union, Any
-from serengeti.executor import distributed
+from typing import Callable, Generator, Iterable, Optional, Union, Any
+
+from serengeti import executor
+from serengeti import operator
+from serengeti.types import Streamable
 
 
-DEFAULT_EXECUTOR = distributed
+DEFAULT_EXECUTOR = executor.threads
 
 
-def stream(
+def map_async(
     function: Callable,
     *iterables: Union[Iterable, Generator],
-    executor: Executor = None,
-    ordered: bool = False,
+    executor: Optional[Executor] = None,
+    ordered: bool = True,
     **kwargs,
-) -> Generator:
-    """Returns a generator equivalent to map(fn, *values)
-    but yielding function call results on iterables as they are completed (async).
+) -> Iterable[Any]:
+    """Returns a generator equivalent to map(fn, *iterables)
+    but maps the function over the iterables async and non_blocking using
+    provided executor. Nothing is executed before you iterate over the
+    returned generator.
+
+    Works similar to concurrent.futures.Executor.map_async, in that functions
+    are not necessarily executed and yielded in order.
+
+    If <ordered> is True, results will be yielded in the same order as the
+    values are ordered in the *iterables.
+
+    Any executor adhering to the `concurrent.futures.Executor` interface can
+    be provided and the function will be executed using provided executor.
 
     Parameters
     ----------
@@ -37,49 +53,34 @@ def stream(
         be evaluated and yielded out-of-order (async).
 
     """
-    executor = (
-        executor
-        or DEFAULT_EXECUTOR
-    )
+    executor = executor or DEFAULT_EXECUTOR
     futures = (
         executor.submit(function, *args, **kwargs)
         for args in zip(*iterables)
     )
     if not ordered:
         futures = as_completed(futures)
-    results = (  # safe unpack of future results
+    results: Generator = (  # safe unpack of future results
         future.result() if isinstance(future, Future)
         else future for future in futures
     )
     return results
 
 
-class StreamMonad:
-    """An iterable StreamMonad for Monadic Generator Composition
-
-    A StreamMonad represents an iterable data source and an execution context
-    for how a function is mapped over the iterable data source.
-
-    StreamMonad::bind allows for mapping a function over the StreamMonads source
-    using the configured executor. Bind does not apply the function directly,
-    but creates a generator of results and wraps it in a StreamMonad. As such
-    this new StreamMonad represents the iterable downstream of results, as the
-    function is applied on the current iterable source.
-
-    """
-
-    def __init__(self, *iterables: Union[Iterable, Generator], executor: Executor = None):
+class Stream:
+    def __init__(self, *iterables: Streamable):
         self.iterables = iterables
-        self.executor = executor or DEFAULT_EXECUTOR
 
     def __iter__(self):
         iterables = [
             iterable() if callable(iterable)
             else iterable for iterable in self.iterables
-        ]  # call iterable if it is a callable returning an iterable
-        for iterable in iterables:
+        ]  # call to the iterable, if it is a callable returning an iterable
+        for iterable in iterables:  # check if unpacked sources are Iterable
             if not isinstance(iterable, (Iterable, Generator)):
-                raise TypeError("Iterables must be of type Generator or Iterable")
+                raise TypeError(
+                    "Iterables must be of type Generator or Iterable"
+                )
         unpacker = (  # noqa
             # unpack if iterables only contain 1 value
             values[0] if len(values) == 1 else values
@@ -87,7 +88,52 @@ class StreamMonad:
         )
         return unpacker
 
-    def bind(self, function: Callable, ordered=False, **kwargs) -> "StreamMonad":
+
+class StreamMonad:
+    """An Iterable StreamMonad for Monadic Async Generator Composition
+
+    A StreamMonad represents an iterable data source and an execution context
+    for how a function is mapped over the iterable data source.
+
+    StreamMonad::bind allows for mapping a function over the StreamMonads
+    source using the configured executor. Bind does not apply the function
+    directly, but creates a generator of results and wraps it in a StreamMonad.
+    As such this new StreamMonad represents the iterable downstream of results,
+    as the function is applied on the current iterable source.
+
+    """
+
+    def __init__(
+        self,
+        *iterables: Streamable Union[Iterable, Generator, Callable[..., Union[Iterable, Generator]],
+        executor: Optional[Executor] = None,
+    ):
+        self.iterables = iterables
+        self.executor = executor or DEFAULT_EXECUTOR
+
+    def __iter__(self):
+        iterables = [
+            iterable() if callable(iterable)
+            else iterable for iterable in self.iterables
+        ]  # call to the iterable, if it is a callable returning an iterable
+        for iterable in iterables:  # check if unpacked sources are Iterable
+            if not isinstance(iterable, (Iterable, Generator)):
+                raise TypeError(
+                    "Iterables must be of type Generator or Iterable"
+                )
+        unpacker = (  # noqa
+            # unpack if iterables only contain 1 value
+            values[0] if len(values) == 1 else values
+            for values in zip(*iterables)
+        )
+        return unpacker
+
+    def bind(
+        self,
+        function: Callable,
+        ordered=True,
+        **kwargs
+    ) -> "StreamMonad":
         """Bind function to the current StreamMonad's iterable source
 
         Parameters
@@ -106,18 +152,28 @@ class StreamMonad:
         """
         if not isinstance(ordered, bool):
             raise TypeError(
-                f"Parameter 'ordered' must be of type <bool> but got '{type(ordered)}'"
+                "Parameter 'ordered' must be of type <bool> but got "
+                f"'{type(ordered)}'"
             )
-        # We wrap the stream in a lambda, so as to make the
-        # generator re-iterable.
-        iterable = lambda: stream(  # noqa
-            function,
-            self,
-            executor=self.executor,
-            ordered=ordered,
-            **kwargs,
+        # If the function itself is a generator, its results will be the
+        # downstream and we can thus wrap it in a StreamMonad and simply
+        # return it.
+        if inspect.isgeneratorfunction(function):
+            iterable = lambda: function(self, **kwargs)  # noqa
+        # We wrap the map_async call signature in a lambda, so as to makes
+        # the generator re-iterable, by forcing its creation everytime you
+        # iterate over the generator.
+        else:
+            iterable = lambda: map_async(  # noqa
+                function,
+                self,
+                executor=self.executor,
+                ordered=ordered,
+                **kwargs,
+            )
+        downstream = StreamMonad(
+            iterable, executor=self.executor
         )
-        downstream = StreamMonad(iterable, executor=self.executor)
         return downstream
 
     def pipe(self, *functions) -> "StreamMonad":
@@ -130,12 +186,17 @@ class StreamMonad:
 
     def on_completed(self, function: Callable, **kwargs) -> "StreamMonad":
         """Only bind function to the last element yielded upstream"""
-        last_element = lambda: element_at(self, index=-1)  # noqa
+        last_element = lambda: operator.element_at(self, index=-1)  # noqa
         return StreamMonad(last_element, executor=self.executor).bind(function, **kwargs)
 
     def on_error(self, function: Callable, **kwargs) -> "StreamMonad":
         """Only bind function to the stream of failures yielded upstream"""
         raise NotImplementedError
+
+
+# =========================================================================== #
+# CONVENIENCE METHODS
+# =========================================================================== #
 
 
 def pipe(
@@ -149,17 +210,6 @@ def pipe(
     initial = StreamMonad(iterable, executor=executor)
     composition = functools.reduce(bind, functions, initial)
     return composition
-
-
-def element_at(iterable: Union[Iterable, Generator], index: int, default: Any = None) -> Generator:
-    """Returns the element at a specified index in an iterable"""
-    nth_element = None
-    for pos, value in enumerate(iterable):
-        nth_element = value
-        if pos == index:
-            yield nth_element or default
-    if index == -1:
-        yield nth_element
 
 
 # TODO: Support railway oriented programming with result monads and allow
